@@ -39,18 +39,11 @@ class ECommAlgorithmTest
     "i2" -> i2
   )
 
-  val view = Seq(
-    ViewEvent("u0", "i0", 1000010),
-    ViewEvent("u0", "i1", 1000020),
-    ViewEvent("u0", "i1", 1000020),
-    ViewEvent("u1", "i1", 1000030),
-    ViewEvent("u1", "i2", 1000040)
-  )
-
-  val buy = Seq(
-    BuyEvent("u0", "i0", 1000020),
-    BuyEvent("u0", "i1", 1000030),
-    BuyEvent("u1", "i1", 1000040)
+  val rate = Seq(
+    RateEvent("u0", "i0", 3.5, 1000010),
+    RateEvent("u0", "i1", 5.0, 1000020),
+    RateEvent("u1", "i1", 0.5, 1000030),
+    RateEvent("u1", "i2", 5.0, 1000040)
   )
 
 
@@ -59,8 +52,7 @@ class ECommAlgorithmTest
     val preparedData = new PreparedData(
       users = sc.parallelize(users.toSeq),
       items = sc.parallelize(items.toSeq),
-      viewEvents = sc.parallelize(view.toSeq),
-      buyEvents = sc.parallelize(buy.toSeq)
+      rateEvents = sc.parallelize(rate.toSeq)
     )
 
     val mllibRatings = algorithm.genMLlibRating(
@@ -70,10 +62,10 @@ class ECommAlgorithmTest
     )
 
     val expected = Seq(
-      MLlibRating(0, 0, 1),
-      MLlibRating(0, 1, 2),
-      MLlibRating(1, 1, 1),
-      MLlibRating(1, 2, 1)
+      MLlibRating(0, 0, 3.5),
+      MLlibRating(1, 1, 0.5),
+      MLlibRating(0, 1, 5.0),
+      MLlibRating(1, 2, 5.0)
     )
 
     mllibRatings.collect should contain theSameElementsAs expected
@@ -83,8 +75,7 @@ class ECommAlgorithmTest
     val preparedData = new PreparedData(
       users = sc.parallelize(users.toSeq),
       items = sc.parallelize(items.toSeq),
-      viewEvents = sc.parallelize(view.toSeq),
-      buyEvents = sc.parallelize(buy.toSeq)
+      rateEvents = sc.parallelize(rate.toSeq)
     )
 
     val popCount = algorithm.trainDefault(
@@ -93,7 +84,7 @@ class ECommAlgorithmTest
       data = preparedData
     )
 
-    val expected = Map(0 -> 1, 1 -> 2)
+    val expected = Map(2 -> 1, 1 -> 2, 0 -> 1)
 
     popCount should contain theSameElementsAs expected
   }

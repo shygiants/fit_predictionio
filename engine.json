@@ -4,14 +4,14 @@
   "engineFactory": "kr.ac.korea.ee.fit.ECommerceRecommendationEngine",
   "datasource": {
     "params" : {
-      "appName": 1
+      "appName": "fit"
     }
   },
   "algorithms": [
     {
       "name": "ecomm",
       "params": {
-        "appName": 1
+        "appName": "fit"
         "unseenOnly": true,
         "seenEvents": ["rate"],
         "similarEvents": ["rate"],

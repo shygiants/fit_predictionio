@@ -102,6 +102,7 @@ class ECommAlgorithm(val ap: ECommAlgorithmParams)
       iterations = ap.numIterations,
       lambda = ap.lambda,
       blocks = -1,
+      alpha = 1.0,
       seed = seed)
 
     val userFeatures = m.userFeatures.collectAsMap.toMap
