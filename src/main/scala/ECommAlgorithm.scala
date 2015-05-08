@@ -65,8 +65,8 @@ class ECommAlgorithm(val ap: ECommAlgorithmParams)
   @transient lazy val logger = Logger[this.type]
 
   def train(sc: SparkContext, data: PreparedData): ECommModel = {
-    require(!data.viewEvents.take(1).isEmpty,
-      s"viewEvents in PreparedData cannot be empty." +
+    require(!data.rateEvents.take(1).isEmpty,
+      s"rateEvents in PreparedData cannot be empty." +
       " Please check if DataSource generates TrainingData" +
       " and Preprator generates PreparedData correctly.")
     require(!data.users.take(1).isEmpty,
@@ -102,7 +102,6 @@ class ECommAlgorithm(val ap: ECommAlgorithmParams)
       iterations = ap.numIterations,
       lambda = ap.lambda,
       blocks = -1,
-      alpha = 1.0,
       seed = seed)
 
     val userFeatures = m.userFeatures.collectAsMap.toMap
@@ -150,7 +149,7 @@ class ECommAlgorithm(val ap: ECommAlgorithmParams)
     itemStringIntMap: BiMap[String, Int],
     data: PreparedData): RDD[MLlibRating] = {
 
-    val mllibRatings = data.viewEvents
+    val mllibRatings = data.rateEvents
       .map { r =>
         // Convert user and item String IDs to Int index for MLlib
         val uindex = userStringIntMap.getOrElse(r.user, -1)
@@ -164,16 +163,24 @@ class ECommAlgorithm(val ap: ECommAlgorithmParams)
           logger.info(s"Couldn't convert nonexistent item ID ${r.item}"
             + " to Int index.")
 
-        ((uindex, iindex), 1)
+        ((uindex, iindex), (r.rating, r.t))
       }
       .filter { case ((u, i), v) =>
         // keep events with valid user and item index
         (u != -1) && (i != -1)
       }
-      .reduceByKey(_ + _) // aggregate all view events of same user-item pair
-      .map { case ((u, i), v) =>
+      .reduceByKey { case (v1, v2) =>
+        // if a user may rate same item with different value at different times,
+        // use the latest value for this case.
+        // Can remove this reduceByKey() if no need to support this case.
+        val (rating1, t1) = v1
+        val (rating2, t2) = v2
+        // keep the latest value
+        if (t1 > t2) v1 else v2
+      }
+      .map { case ((u, i), (rating, t)) =>
         // MLlibRating requires integer index for user and item
-        MLlibRating(u, i, v)
+        MLlibRating(u, i, rating)
       }
       .cache()
 
@@ -188,9 +195,9 @@ class ECommAlgorithm(val ap: ECommAlgorithmParams)
     userStringIntMap: BiMap[String, Int],
     itemStringIntMap: BiMap[String, Int],
     data: PreparedData): Map[Int, Int] = {
-    // count number of buys
+    // count number of rates
     // (item index, count)
-    val buyCountsRDD: RDD[(Int, Int)] = data.buyEvents
+    val rateCountsRDD: RDD[(Int, Int)] = data.rateEvents
       .map { r =>
         // Convert user and item String IDs to Int index
         val uindex = userStringIntMap.getOrElse(r.user, -1)
@@ -213,7 +220,7 @@ class ECommAlgorithm(val ap: ECommAlgorithmParams)
       .map { case (u, i, v) => (i, 1) } // key is item
       .reduceByKey{ case (a, b) => a + b } // count number of items occurrence
 
-    buyCountsRDD.collectAsMap.toMap
+    rateCountsRDD.collectAsMap.toMap
   }
 
   def predict(model: ECommModel, query: Query): PredictedResult = {
@@ -363,7 +370,7 @@ class ECommAlgorithm(val ap: ECommAlgorithmParams)
 
   /** Get recent events of the user on items for recommending similar items */
   def getRecentItems(query: Query): Set[String] = {
-    // get latest 10 user view item events
+    // get latest 10 user rate item events
     val recentEvents = try {
       LEventStore.findByEntity(
         appName = ap.appName,
