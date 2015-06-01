@@ -96,15 +96,14 @@ class ECommAlgorithm(val ap: ECommAlgorithmParams)
     val seed = ap.seed.getOrElse(System.nanoTime)
 
     // use ALS to train feature vectors
-    val m = ALS.trainImplicit(
+    val m = ALS.train( // MODIFIED
       ratings = mllibRatings,
       rank = ap.rank,
       iterations = ap.numIterations,
       lambda = ap.lambda,
       blocks = -1,
-      alpha = 1.0,
       seed = seed)
-
+    
     val userFeatures = m.userFeatures.collectAsMap.toMap
 
     // convert ID to Int index
