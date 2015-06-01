@@ -312,7 +312,7 @@ class ECommAlgorithm(val ap: ECommAlgorithmParams)
           eventNames = Some(ap.seenEvents),
           targetEntityType = Some(Some("item")),
           // set time limit to avoid super long DB access
-          timeout = Duration(200, "millis")
+          timeout = Duration(2000, "millis")
         )
       } catch {
         case e: scala.concurrent.TimeoutException =>
